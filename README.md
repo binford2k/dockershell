@@ -90,7 +90,7 @@ Each profile has a number of options you can configure. None have default values
 *  `:postrun`
     * The cleanup script to run after the session has ended. It is run in a detached
       process so that it's guaranteed to complete even if the shell is killed.
-    * *This will not execute if the shell is terminated with signal 9 (`SIGKILL`)!`
+    * *This will not execute if the shell is terminated with signal 9 (`SIGKILL`)!*
 
 Each script should exist in `/etc/dockershell/scripts`. A few defaults are provided
 directly in the gem. The script is executed with two values passed:
