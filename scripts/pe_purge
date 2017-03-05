@@ -1,0 +1,37 @@
+#! /usr/bin/env ruby
+require 'puppet'
+require 'puppetclassify'
+require 'socket'
+require 'fileutils'
+
+Puppet.initialize_settings
+
+certname    = ARGV[0] || exit(1)
+groups      = ARGV[1] # TODO: future enhancement?
+environment = certname.split('.').first.gsub('-','_')
+master      = Socket.gethostbyname(Socket.gethostname).first
+auth_info   = {
+    'ca_certificate_path' => Puppet.settings[:cacert],
+    'certificate_path'    => Puppet.settings[:hostcert],
+    'private_key_path'    => Puppet.settings[:hostprivkey],
+}
+
+classifier = PuppetClassify.new("http://#{master}:4433/classifier-api", auth_info)
+
+begin
+  group_id = classifier.groups.get_group_id(certname)
+  classifier.groups.delete_group(group_id)
+rescue => e
+  puts "Error removing node group #{certname}: #{e.message}"
+end
+
+begin
+  system('puppet', 'cert', 'clean', certname)
+  system('puppet', 'node', 'deactivate', certname)
+rescue => e
+  puts "Error cleaning certificate #{certname}: #{e.message}"
+end
+
+FileUtils.rm_rf "#{Puppet.settings[:environmentpath]}/#{environment}"
+
+puts "Removed node group #{certname} and environment #{environment}"

@@ -1,0 +1,4 @@
+class Dockershell::Wordgen
+
+
+end

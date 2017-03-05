@@ -1,0 +1,29 @@
+#! /usr/bin/env ruby
+require 'puppet'
+require 'fileutils'
+
+Puppet.initialize_settings
+
+certname    = ARGV[0] || exit(1)
+course      = ARGV[1]
+environment = certname.split('.').first.gsub('-','_')
+
+known_courses = [
+  'autoloading', 'classes', 'cli_intro', 'code', 'facter_intro', 'hiera',
+  'hiera_intro', 'infrastructure', 'inheritance', 'module', 'parser',
+  'puppet_lint', 'relationships', 'resources', 'smoke_test', 'testing',
+  'troubleshooting', 'unit_test', 'validating', 'get_hiera1', 'get_hiera2',
+  'get_hiera3', 'get_hiera4', 'get_hiera5', 'exec',
+]
+course = 'default' unless known_courses.include? course
+
+path = "#{Puppet.settings[:environmentpath]}/#{environment}"
+FileUtils.mkdir_p "#{path}/modules"
+FileUtils.mkdir_p "#{path}/manifests"
+
+# Create site manifest with include course_selector::course::${course}
+File.open("#{path}/manifests/site.pp", 'w') { |file|
+  file.write "node default {\n"
+  file.write "  include course_selector::course::#{course}\n"
+  file.write "}\n"
+}

@@ -1,0 +1,39 @@
+#! /usr/bin/env ruby
+require 'puppet'
+require 'puppetclassify'
+require 'socket'
+require 'fileutils'
+
+Puppet.initialize_settings
+
+certname    = ARGV[0] || exit(1)
+groups      = ARGV[1] # TODO: future enhancement?
+environment = certname.split('.').first.gsub('-','_')
+master      = Socket.gethostbyname(Socket.gethostname).first
+auth_info   = {
+    'ca_certificate_path' => Puppet.settings[:cacert],
+    'certificate_path'    => Puppet.settings[:hostcert],
+    'private_key_path'    => Puppet.settings[:hostprivkey],
+}
+
+FileUtils.mkdir_p "#{Puppet.settings[:environmentpath]}/#{environment}/modules"
+FileUtils.mkdir_p "#{Puppet.settings[:environmentpath]}/#{environment}/manifests"
+
+classifier = PuppetClassify.new("http://#{master}:4433/classifier-api", auth_info)
+group_hash = {
+  'name'               => certname,
+  'environment'        => environment,
+  'environment_trumps' => true,
+  'parent'             => '00000000-0000-4000-8000-000000000000',
+  'classes'            => {},
+  'rule'               => ['or', ['=', 'name', certname]],
+}
+
+begin
+  classifier.groups.create_group(group_hash)
+rescue => e
+  puts "Could not create node group #{certname}: #{e.message}"
+  exit 1
+end
+
+puts "Created node group #{certname} assigned to environment #{environment}"
