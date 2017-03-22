@@ -33,16 +33,16 @@ class Dockershell
   end
 
   [:prerun, :setup, :postrun].each do |task|
-	  define_method(task) do
+    define_method(task) do
       return unless @options[:profile].include? task
       script = which(@options[:profile][task]) || return
-  	  @logger.debug "#{task}: #{script} #{@options[:fqdn]} #{@options[:option]}"
+      @logger.debug "#{task}: #{script} #{@options[:fqdn]} #{@options[:option]}"
 
-  	  # This construct allows us to have an optional 2nd parameter to the script
+      # This construct allows us to have an optional 2nd parameter to the script
       output, status = Open3.capture2e(*[script, @options[:fqdn], @options[:option]].compact)
       @logger.debug output
       bomb "#{task} task '#{script} #{@options[:name]} #{@options[:option]}' failed." unless status.success?
-  	end
+    end
   end
 
   # This spawns a detached process to clean up. This is so it doesn't die when the parent is killed
