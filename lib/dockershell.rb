@@ -1,5 +1,6 @@
 require 'json'
 require 'open3'
+require 'erb'
 
 class Dockershell
   def initialize(options)
@@ -102,7 +103,7 @@ private
     ]
 
     @options[:profile][:volumes].each do |volume|
-      args << '--volume' << volume
+      args << '--volume' << ERB.new(volume).result(binding)
     end
 
     args << @options[:profile][:image] << '/sbin/init'
