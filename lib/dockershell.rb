@@ -101,8 +101,13 @@ private
       '--expose=80', '-Ptd',
     ]
 
+    formatvars = {
+      :name => @options[:name],
+      :fqdn => @options[:fqdn],
+    }
+    
     @options[:profile][:volumes].each do |volume|
-      args << '--volume' << volume
+      args << '--volume' << volume % formatvars
     end
 
     args << @options[:profile][:image] << '/sbin/init'
