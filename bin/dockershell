@@ -25,6 +25,7 @@ options = {
 options.merge!(YAML.load_file(config)) if File.file? config
 options[:logger] = Logger.new(options[:logfile])
 options[:logger].level = Logger::const_get(options[:loglevel].upcase)
+options[:profile] = options[:profiles][:default] if options[:profiles].include? :default
 
 optparse = OptionParser.new { |opts|
     opts.banner = "Usage : dockershell [-p <profile>] [-n <name>] [-d]
