@@ -9,14 +9,23 @@ require 'facter'
 
 require 'dockershell'
 
-config  = '/etc/dockershell/config.yaml'
+if Gem.win_platform?
+  require 'fileutils'
+  FileUtils.mkdir_p 'C:\ProgramData\dockershell'
+  config  = 'C:\ProgramData\dockershell\config.yaml'
+  logfile = 'C:\ProgramData\dockershell\dockershell.log'
+else
+  config  = '/etc/dockershell/config.yaml'
+  logfile = '/var/log/dockershell'
+end
+
 options = {
   :loglevel => 'info',
-  :logfile  => '/var/log/dockershell',
+  :logfile  => logfile,
   :domain   => Facter.value(:domain),
   :docker   => {
     :group  => 'docker',
-    :ipaddr => Facter.value(:ipaddress_docker0),
+    :ipaddr => Facter.value(:ipaddress_docker0),  # TODO: hmm. This doesn't seem to appear in Windows Docker
   },
   :profile  => {
     :image  => 'agent',
@@ -25,7 +34,9 @@ options = {
 options.merge!(YAML.load_file(config)) if File.file? config
 options[:logger] = Logger.new(options[:logfile])
 options[:logger].level = Logger::const_get(options[:loglevel].upcase)
-options[:profile] = options[:profiles][:default] if options[:profiles].include? :default
+if options.include? :profiles and options[:profiles].include? :default
+	options[:profile] = options[:profiles][:default]
+end
 
 optparse = OptionParser.new { |opts|
     opts.banner = "Usage : dockershell [-p <profile>] [-n <name>] [-d]
@@ -39,6 +50,11 @@ optparse = OptionParser.new { |opts|
 
     opts.on("-n NAME", "--name NAME", "Provide a name for your container.") do |arg|
         options[:name] = arg
+    end
+
+    opts.on("-k NAME", "--kill NAME", "Kill and remove a running container.") do |arg|
+        Dockershell.new(options).kill arg
+        exit 0
     end
 
     opts.on("-p PROFILE", "--profile PROFILE", "Which profile to start. Defaults to 'default'.") do |arg|

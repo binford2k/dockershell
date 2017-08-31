@@ -28,8 +28,24 @@ class Dockershell
 
   def start
     @logger.info 'starting Dockershell.'
-    args = 'docker', 'exec', '-it', @options[:name], 'script', '-qc', 'bash', '/dev/null'
+	if Gem.win_platform?
+		args = 'docker', 'exec', '-it', @options[:name], 'powershell.exe'
+	else
+		args = 'docker', 'exec', '-it', @options[:name], 'script', '-qc', 'bash', '/dev/null'
+	end
     bomb 'could not start container.' unless system(*args)
+  end
+
+  def kill(container)
+    @logger.info "Killing container: #{container}."
+
+    output, status = Open3.capture2e('docker', 'kill', container)
+    @logger.debug output
+    @logger.warn 'could not stop container' unless status.success?
+
+    output, status = Open3.capture2e('docker', 'rm', '-f', container)
+    @logger.debug output
+    @logger.warn 'could not remove container' unless status.success?
   end
 
   [:prerun, :setup, :postrun].each do |task|
@@ -48,20 +64,31 @@ class Dockershell
   # This spawns a detached process to clean up. This is so it doesn't die when the parent is killed
   def detached_postrun
     @logger.info 'terminating and cleaning up.'
-    cleaner = Process.fork do
-      Process.setsid
 
-      output, status = Open3.capture2e('docker', 'kill', @options[:name])
-      @logger.debug output
-      @logger.warn 'could not stop container' unless status.success?
-
-      output, status = Open3.capture2e('docker', 'rm', '-f', @options[:name])
-      @logger.debug output
-      @logger.warn 'could not remove container' unless status.success?
-
+    if Gem.win_platform?
+      # windows doesn't have fork, this is as close as we can get
+      require 'win32/process'
+      command = File.expand_path(File.join(File.dirname(__FILE__), '..', 'bin', 'dockershell'))
+      cmdexe = ENV['ComSpec']
+      command = "#{ENV['ComSpec']}/cmd.exe /C dockershell --kill #{@options[:name]}"
+      cleaner = Process.create(
+         :command_line     => "dockershell --kill #{@options[:name]}",
+         :creation_flags   => Process::DETACHED_PROCESS,
+         :process_inherit  => false,
+         :thread_inherit   => false,
+         :cwd              => "C:\\",
+         :environment      => "SYSTEMROOT=#{ENV['SYSTEMROOT']};PATH=C:\\",
+      )
       postrun
+
+    else
+      cleaner = Process.fork do
+        Process.setsid
+        kill(@options[:name])
+        postrun
+      end
+      Process.detach cleaner
     end
-    Process.detach cleaner
   end
 
 private
@@ -91,26 +118,25 @@ private
     @logger.info 'creating container.'
     args = [
       'docker', 'run',
-      '--security-opt', 'seccomp=unconfined',
-      '--stop-signal=SIGRTMIN+3',
-      '--tmpfs', '/tmp', '--tmpfs', '/run',
-      '--volume', '/sys/fs/cgroup:/sys/fs/cgroup:ro',
       '--hostname', "#{@options[:fqdn]}",
       '--name', @options[:name],
       "--add-host=puppet:#{@options[:docker][:ipaddr]}",
       '--expose=80', '-Ptd',
     ]
 
-    formatvars = {
-      :name => @options[:name],
-      :fqdn => @options[:fqdn],
-    }
-    
     @options[:profile][:volumes].each do |volume|
-      args << '--volume' << volume % formatvars
+      args << '--volume' << volume
     end
 
-    args << @options[:profile][:image] << '/sbin/init'
+    if Gem.win_platform?
+      args << @options[:profile][:image] << "powershell.exe"
+    else
+      args << '--security-opt' << 'seccomp=unconfined'
+      args << '--stop-signal=SIGRTMIN+3'
+      args << '--tmpfs' << '/tmp' << '--tmpfs' << '/run'
+      args << '--volume' << '/sys/fs/cgroup:/sys/fs/cgroup:ro'
+      args << @options[:profile][:image] << '/sbin/init'
+    end
 
     output, status = Open3.capture2e(*args)
     @logger.debug output
