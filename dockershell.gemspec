@@ -2,7 +2,7 @@ require 'date'
 
 Gem::Specification.new do |s|
   s.name              = "dockershell"
-  s.version           = '0.0.1'
+  s.version           = '0.0.2'
   s.date              = Date.today.to_s
   s.summary           = "Provides a user shell backed by  a Docker container."
   s.homepage          = "https://github.com/binford2k/dockershell/"
