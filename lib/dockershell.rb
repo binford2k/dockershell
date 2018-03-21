@@ -102,8 +102,10 @@ private
     ]
 
     formatvars = {
-      :name => @options[:name],
-      :fqdn => @options[:fqdn],
+      :name            => @options[:name],
+      :fqdn            => @options[:fqdn],
+      :normalized_name => @options[:name].gsub(/\W/,'_'),
+      :normalized_fqdn => @options[:fqdn].gsub(/\W/,'_'),
     }
     
     @options[:profile][:volumes].each do |volume|
